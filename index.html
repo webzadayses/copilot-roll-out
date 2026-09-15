@@ -396,6 +396,19 @@
   .record-row-title{font-size:var(--text-base);font-weight:600;color:var(--ink);}
   .record-row-meta{font-size:var(--text-sm);color:var(--ink-soft);margin-top:4px;}
   .loading-msg{padding:20px;color:var(--ink-soft);font-size:var(--text-sm);}
+
+  /* ===== Pilot user cards — small, side by side ===== */
+  .user-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:var(--space-3);}
+  .user-card{
+    background:var(--panel);border-radius:var(--radius);
+    padding:var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+    border-left:3px solid var(--teal);box-shadow:var(--shadow-1);cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .user-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-2);}
+  .user-card .uc-top{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:var(--space-2);}
+  .user-card .uc-name{font-size:var(--text-sm);font-weight:700;color:var(--ink);line-height:1.3;}
+  .user-card .uc-role{font-size:var(--text-2xs);color:var(--ink-soft);margin:2px 0 var(--space-2);}
 </style>
 </head>
 <body>
@@ -407,7 +420,6 @@
   <button class="nav-item" data-page="plan">Project Plan</button>
   <button class="nav-item" data-page="raci">RACI</button>
   <button class="nav-item" data-page="meetings">Weekly Meetings</button>
-  <button class="nav-item" data-page="status">Management Status</button>
   <button class="nav-item" data-page="support">Support</button>
   <button class="nav-item" data-page="users">Pilot Users</button>
   <button class="nav-item" data-page="prompts">Prompt Library</button>
@@ -503,15 +515,6 @@
   <div id="meetingsTableWrap"></div>
 </section>
 
-<section id="page-status" class="page">
-  <div class="page-header">
-    <h2>Management Status</h2>
-    <p>Weekly leadership-level reporting, linked to the meeting log through the Primary Meeting ID.</p>
-  </div>
-  <div class="kpi-grid" id="statusKpi"></div>
-  <div id="statusTableWrap"></div>
-</section>
-
 <section id="page-support" class="page">
   <div class="page-header">
     <h2>Support &amp; Communication</h2>
@@ -576,14 +579,14 @@ const TASKS = [
   {key:'A06', id:'A06', m:2, title:'Confirm roles, approvals and escalation path for IIH, Noventiq and MoC', lead:'IIH', support:'Noventiq', owner:'MoC D&T', output:'Agreed ownership and escalation matrix', channel:'Project kickoff / weekly project meeting', source:'New suggested activity', status:'Not Started'},
   {key:'A07', id:'A07', m:2, title:'Baseline current business metrics', lead:'IIH', support:'MoC Pilot Users', owner:'MoC Business Departments', output:'Completed pre-pilot assessment / baseline report + signing NDA', channel:'Survey + project repository', source:'Original', status:'In Progress'},
   {key:'A08', id:'A08', m:2, title:'Validate Microsoft 365 and Copilot technical prerequisites applicable to MoC', lead:'Noventiq', support:'IIH', owner:'MoC Infrastructure / M365 Administration', output:'Technical readiness checklist', channel:'Technical workshop', source:'Original – clarified for MoC', status:'Completed'},
-  {key:'A12', id:'A09', m:2, title:'Assign pilot licenses and validate user access before launch', lead:'MoC M365 Administration', support:'Noventiq / IIH', owner:'MoC Infrastructure / M365 Administration', output:'Pilot users successfully enabled and tested', channel:'Technical session + issue tracker', source:'New suggested activity', status:'Not Started'},
 
   // 3. Enablement & Adoption
-  {key:'A13-DRAFT', id:'A10', m:3, title:'Email body drafts', lead:'IIH', support:'MoC D&T', owner:'MoC D&T', output:'Email body to be shared with executives and non-executives', channel:'Email', source:'New suggested activity', status:'Not Started'},
-  {key:'A13', id:'A11', m:3, title:'Email circulation for all selected users', lead:'MoC D&T', support:'IIH', owner:'MoC D&T', output:'Email sent explaining the Copilot enablement process, planned workshops and support needed', channel:'Email', source:'New suggested activity', status:'Completed'},
-  {key:'A16', id:'A12', m:3, title:'Deliver executive enablement session', lead:'Noventiq', support:'IIH', owner:'MoC Leadership', output:'Executive session completed', channel:'Executives training session', source:'Original', status:'Not Started', extra:'Live prompt-engineering exercises; showcase Copilot Chat, Microsoft 365 Copilot and Agents; explain Agents and Agent Builder; present the Copilot vision and roadmap; demonstrate MoC-relevant and industry use cases.'},
-  {key:'A17', id:'A13', m:3, title:"Deliver non-executives' enablement and training", lead:'Noventiq', support:'IIH', owner:'MoC Pilot Users', output:'Training attendance and materials', channel:'Non-executive training sessions', source:'Original', status:'Not Started', extra:'Live prompt-engineering exercises; showcase Copilot Chat, Microsoft 365 Copilot and Agents; explain Agents and Agent Builder; present the Copilot vision and roadmap; demonstrate MoC-relevant and industry use cases.'},
-  {key:'A18', id:'A14', m:3, title:'Launch pilot communication and a single pilot support/feedback channel', lead:'IIH', support:'Noventiq', owner:'MoC D&T / Pilot Users', output:'Welcome communication + active pilot channel', channel:'Microsoft Teams channel + email', source:'New suggested activity', status:'Not Started'},
+  {key:'A13-DRAFT', id:'A09', m:3, title:'Email body drafts', lead:'IIH', support:'MoC D&T', owner:'MoC D&T', output:'Email body to be shared with executives and non-executives', channel:'Email', source:'New suggested activity', status:'Not Started'},
+  {key:'A13', id:'A10', m:3, title:'Email circulation for all selected users', lead:'MoC D&T', support:'IIH', owner:'MoC D&T', output:'Email sent explaining the Copilot enablement process, planned workshops and support needed', channel:'Email', source:'New suggested activity', status:'Completed'},
+  {key:'A16', id:'A11', m:3, title:'Deliver executive enablement session', lead:'Noventiq', support:'IIH', owner:'MoC Leadership', output:'Executive session completed', channel:'Executives training session', source:'Original', status:'Not Started', extra:'Live prompt-engineering exercises; showcase Copilot Chat, Microsoft 365 Copilot and Agents; explain Agents and Agent Builder; present the Copilot vision and roadmap; demonstrate MoC-relevant and industry use cases.'},
+  {key:'A17', id:'A12', m:3, title:"Deliver non-executives' enablement and training", lead:'Noventiq', support:'IIH', owner:'MoC Pilot Users', output:'Training attendance and materials', channel:'Non-executive training sessions', source:'Original', status:'Not Started', extra:'Live prompt-engineering exercises; showcase Copilot Chat, Microsoft 365 Copilot and Agents; explain Agents and Agent Builder; present the Copilot vision and roadmap; demonstrate MoC-relevant and industry use cases.'},
+  {key:'A18', id:'A13', m:3, title:'Launch pilot communication and a single pilot support/feedback channel', lead:'IIH', support:'Noventiq', owner:'MoC D&T / Pilot Users', output:'Welcome communication + active pilot channel', channel:'Microsoft Teams channel + email', source:'New suggested activity', status:'Not Started'},
+  {key:'A12', id:'A14', m:3, title:'Assign pilot licenses and validate user access before launch', lead:'MoC M365 Administration', support:'Noventiq / IIH', owner:'MoC Infrastructure / M365 Administration', output:'Pilot users successfully enabled and tested', channel:'Technical session + issue tracker', source:'New suggested activity', status:'Not Started'},
 
   // 4. Pilot Execution
   {key:'A19', id:'A15', m:4, title:'Track pilot issues, questions and required actions', lead:'IIH & Noventiq', support:'Noventiq', owner:'MoC M365 Administration / Cybersecurity as needed', output:'Open/closed issue log', channel:'Pilot Teams channel + weekly project meeting', source:'New suggested activity', status:'Not Started'},
@@ -643,8 +646,7 @@ const RACI_COLOR = {
 const SUPPORT_MECHANISMS = [
   {name:"Support Mailing Group", purpose:"Single email group for pilot support requests and issue tracking", owner:"MoC D&T / IIH", status:"Not Started", link:"", goLive:""},
   {name:"Webex Teams Channel", purpose:"Main collaboration channel for pilot questions, support and announcements", owner:"IIH / MoC D&T", status:"Not Started", link:"", goLive:""},
-  {name:"Weekly Tips", purpose:"Provide one recurring set of practical Copilot tips to pilot users each week", owner:"IIH / Noventiq", status:"Not Started", link:"", goLive:""},
-  {name:"Tips by Email", purpose:"Share selected Copilot tips and reminders through the support mailing group", owner:"IIH", status:"Not Started", link:"", goLive:""},
+  {name:"Weekly & Email Tips", purpose:"One recurring set of practical Copilot tips shared with pilot users each week, both in the pilot channel and by email through the support mailing group", owner:"IIH / Noventiq", status:"Not Started", link:"", goLive:""},
 ];
 
 // Loaded live from Supabase — see supabase-setup-prompts.sql, which also
@@ -655,7 +657,6 @@ let PROMPTS_DATA = [];
 // on each tab. Starts empty until the SQL in supabase-setup-part2.sql has
 // been run and records exist.
 let MEETINGS_DATA = [];
-let STATUS_DATA = [];
 let SUPPORT_LOG = [];
 let USERS_DATA = [];
 
@@ -738,7 +739,6 @@ function subscribeToChanges(){
   // page when someone else saves a change, it refreshes automatically.
   const liveTables = [
     {table:'meetings', pageId:'meetings'},
-    {table:'management_status', pageId:'status'},
     {table:'support_log', pageId:'support'},
     {table:'pilot_users', pageId:'users'},
     {table:'prompts', pageId:'prompts'},
@@ -937,12 +937,11 @@ document.getElementById('importFile').addEventListener('change', async (e)=>{
 // ---------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------
-const PAGES = ['overview','plan','raci','meetings','status','support','users','prompts'];
+const PAGES = ['overview','plan','raci','meetings','support','users','prompts'];
 const PAGE_RENDER = {
   overview: renderOverview,
   raci: renderRACI,
   meetings: renderMeetings,
-  status: renderStatusPage,
   support: renderSupportPage,
   users: renderUsersPage,
   prompts: renderPrompts,
@@ -1117,55 +1116,6 @@ async function renderMeetings(){
 }
 
 // ---------------------------------------------------------------------
-// Management Status
-// ---------------------------------------------------------------------
-async function renderStatusPage(){
-  const wrap = document.getElementById('statusTableWrap');
-  wrap.innerHTML = '<div class="loading-msg">Loading…</div>';
-  await loadDataset('status');
-
-  const total = STATUS_DATA.length;
-  document.getElementById('statusKpi').innerHTML = [
-    [total,'Status reports logged'],
-    [STATUS_DATA.filter(s=>s.overall==='Green').length,'Green weeks'],
-    [STATUS_DATA.filter(s=>s.overall==='Amber').length,'Amber weeks'],
-    [STATUS_DATA.filter(s=>s.overall==='Red').length,'Red weeks'],
-  ].map(([n,l])=>'<div class="kpi-card"><div class="kpi-num">'+n+'</div><div class="kpi-label">'+l+'</div></div>').join('');
-
-  wrap.innerHTML =
-    loadErrorBanner('status') +
-    '<button class="reset-btn btn-primary add-btn" id="addStatusBtn">+ Add weekly status</button>' +
-    '<div id="statusFormArea"></div>' +
-    '<div id="statusRows"></div>';
-  document.getElementById('addStatusBtn').onclick = () => openRecordForm('status', 'statusFormArea', null);
-
-  const rows = document.getElementById('statusRows');
-  if (!total){
-    rows.innerHTML = '<div class="empty-state"><b>No status reports yet</b>Click "+ Add weekly status" above — link it to a meeting via Primary Meeting ID once that meeting exists.</div>';
-    return;
-  }
-  const ragCol = {Green:{c:'var(--done)',bg:'var(--done-soft)'}, Amber:{c:'var(--progress)',bg:'var(--progress-soft)'}, Red:{c:'var(--blocked)',bg:'var(--blocked-soft)'}};
-  rows.innerHTML = STATUS_DATA.map(s=>{
-    const col = ragCol[s.overall] || ragCol.Green;
-    return '<div class="record-row" data-id="' + s.id + '">' +
-      '<div class="record-row-top">' +
-        '<span class="record-row-id">' + s.id + '</span>' +
-        '<span class="status-pill" style="color:' + col.c + ';background:' + col.bg + '">' + (s.overall||'Green') + '</span>' +
-      '</div>' +
-      '<div class="record-row-title">' + (s.reporting_week || 'Unlabeled week') + (s.phase ? ' · ' + s.phase : '') + '</div>' +
-      '<div class="record-row-meta">' + (s.progress_pct != null ? s.progress_pct + '% progress' : 'No progress % set') + (s.primary_meeting_id ? ' · Meeting ' + s.primary_meeting_id : '') + '</div>' +
-    '</div>';
-  }).join('');
-  document.querySelectorAll('#statusRows .record-row').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const rec = STATUS_DATA.find(x=>x.id===el.getAttribute('data-id'));
-      openRecordForm('status', 'statusFormArea', rec);
-      document.getElementById('statusFormArea').scrollIntoView({behavior:'smooth', block:'center'});
-    });
-  });
-}
-
-// ---------------------------------------------------------------------
 // Support & Communication
 // ---------------------------------------------------------------------
 async function renderSupportPage(){
@@ -1258,21 +1208,6 @@ const FIELD_SCHEMAS = {
     {key:'next_meeting_date', label:'Next Meeting Date', type:'date'},
     {key:'notes', label:'Notes', type:'textarea'},
   ],
-  status: [
-    {key:'reporting_week', label:'Reporting Week', type:'text'},
-    {key:'primary_meeting_id', label:'Primary Meeting ID', type:'text'},
-    {key:'meeting_date', label:'Meeting Date', type:'date'},
-    {key:'overall', label:'Overall Status', type:'select', options:['Green','Amber','Red']},
-    {key:'phase', label:'Current Phase', type:'select', options:MILESTONES.map(m=>m.name)},
-    {key:'progress_pct', label:'Progress %', type:'number'},
-    {key:'achievements', label:'Key Achievements / Outcomes', type:'textarea'},
-    {key:'next_priorities', label:'Next Week Priorities', type:'textarea'},
-    {key:'blockers', label:'Key Blockers', type:'textarea'},
-    {key:'decisions_required', label:'Decisions Required', type:'textarea'},
-    {key:'pilot_user_status', label:'Pilot User Status', type:'text'},
-    {key:'comments', label:'Management Comments', type:'textarea'},
-    {key:'date_shared', label:'Date Shared', type:'date'},
-  ],
   support: [
     {key:'log_date', label:'Date', type:'date'},
     {key:'type', label:'Type', type:'select', options:['Support Issue','Question','Weekly Tip','Email Tip','Announcement','Feedback']},
@@ -1302,6 +1237,7 @@ const FIELD_SCHEMAS = {
     {key:'pre_survey', label:'Pre-Survey', type:'select', options:['Not Started','Completed']},
     {key:'usage_status', label:'Usage Status', type:'select', options:['Not Started','Active','Low Usage','Inactive']},
     {key:'open_support_issues', label:'Open Support Issues', type:'number'},
+    {key:'mid_survey', label:'Mid-Survey', type:'select', options:['Not Started','Completed']},
     {key:'post_survey', label:'Post-Survey', type:'select', options:['Not Started','Completed']},
     {key:'notes', label:'Notes', type:'textarea'},
   ],
@@ -1322,7 +1258,6 @@ const FIELD_SCHEMAS = {
 
 const DATASETS = {
   meetings: {table:'meetings', prefix:'MTG', schema:FIELD_SCHEMAS.meetings, get:()=>MEETINGS_DATA, set:v=>{MEETINGS_DATA=v;}},
-  status:   {table:'management_status', prefix:'STAT', schema:FIELD_SCHEMAS.status, get:()=>STATUS_DATA, set:v=>{STATUS_DATA=v;}},
   support:  {table:'support_log', prefix:'SUP', schema:FIELD_SCHEMAS.support, get:()=>SUPPORT_LOG, set:v=>{SUPPORT_LOG=v;}},
   users:    {table:'pilot_users', prefix:'USR', schema:FIELD_SCHEMAS.users, get:()=>USERS_DATA, set:v=>{USERS_DATA=v;}},
   prompts:  {table:'prompts', prefix:'PRM', schema:FIELD_SCHEMAS.prompts, get:()=>PROMPTS_DATA, set:v=>{PROMPTS_DATA=v;}},
@@ -1447,6 +1382,7 @@ async function renderUsersPage(){
     [USERS_DATA.filter(u=>u.training==='Completed').length,'Training completed'],
     [USERS_DATA.filter(u=>u.pre_survey==='Completed').length,'Pre-survey completed'],
     [USERS_DATA.filter(u=>u.usage_status==='Active').length,'Active users'],
+    [USERS_DATA.filter(u=>u.mid_survey==='Completed').length,'Mid-survey completed'],
     [USERS_DATA.filter(u=>u.post_survey==='Completed').length,'Post-survey completed'],
   ].map(([n,l])=>'<div class="kpi-card"><div class="kpi-num">'+n+'</div><div class="kpi-label">'+l+'</div></div>').join('');
 
@@ -1482,23 +1418,21 @@ async function renderUsersPage(){
     return;
   }
   const groupCol = {'MoC Leadership':{c:'var(--ink)',bg:'#fff',border:'1px solid var(--line)'}, 'MoC Employee':{c:'var(--teal)',bg:'var(--teal-soft)',border:'none'}};
-  rows.innerHTML = list.map(u=>{
+  rows.innerHTML = '<div class="user-card-grid">' + list.map(u=>{
     const readiness = computeReadiness(u);
     const rcol = readiness === 'Ready' ? {c:'var(--done)',bg:'var(--done-soft)'} : {c:'var(--notstarted)',bg:'var(--notstarted-soft)'};
     const gcol = groupCol[u.user_group] || {c:'var(--ink-soft)',bg:'var(--panel)',border:'none'};
-    return '<div class="record-row" data-id="' + u.id + '">' +
-      '<div class="record-row-top">' +
+    return '<div class="user-card" data-id="' + u.id + '" style="border-left-color:' + rcol.c + '">' +
+      '<div class="uc-top">' +
         '<span class="record-row-id">' + u.id + '</span>' +
-        '<span style="display:flex;gap:6px;">' +
-          (u.user_group ? '<span class="badge" style="color:' + gcol.c + ';background:' + gcol.bg + ';border:' + gcol.border + '">' + u.user_group + '</span>' : '') +
-          '<span class="badge" style="color:' + rcol.c + ';background:' + rcol.bg + '">' + readiness + '</span>' +
-        '</span>' +
+        '<span class="badge" style="color:' + rcol.c + ';background:' + rcol.bg + '">' + readiness + '</span>' +
       '</div>' +
-      '<div class="record-row-title">' + (u.name || 'Unnamed user') + '</div>' +
-      '<div class="record-row-meta">' + (u.role||'') + (u.email ? ' · ' + u.email : '') + ' · ' + (u.pilot_status||'Selected') + '</div>' +
+      '<div class="uc-name">' + (u.name || 'Unnamed user') + '</div>' +
+      '<div class="uc-role">' + (u.role||'') + '</div>' +
+      (u.user_group ? '<span class="badge" style="color:' + gcol.c + ';background:' + gcol.bg + ';border:' + gcol.border + '">' + u.user_group + '</span>' : '') +
     '</div>';
-  }).join('');
-  document.querySelectorAll('#userRows .record-row').forEach(el=>{
+  }).join('') + '</div>';
+  document.querySelectorAll('#userRows .user-card').forEach(el=>{
     el.addEventListener('click', ()=>{
       const rec = USERS_DATA.find(x=>x.id===el.getAttribute('data-id'));
       openRecordForm('users', 'userFormArea', rec);
