@@ -295,6 +295,29 @@
   .prompt-meta{font-size:11.5px;color:var(--ink-soft);margin-bottom:9px;}
   .prompt-text{font-size:12.5px;color:var(--ink-soft);background:var(--panel);border-radius:7px;padding:10px 12px;line-height:1.55;margin-bottom:9px;}
   .prompt-foot{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+
+  /* ===== Editable record forms ===== */
+  .add-btn{margin-bottom:16px;}
+  .btn-primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .btn-danger{color:var(--blocked);border-color:var(--blocked);}
+  .form-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+    gap:10px 14px;margin-bottom:14px;padding:16px;background:var(--panel);border-radius:var(--radius);
+  }
+  .form-field label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;}
+  .form-field input, .form-field select, .form-field textarea{
+    width:100%;padding:8px 10px;font-size:13px;font-family:inherit;
+    border:1px solid var(--line);border-radius:7px;color:var(--ink);background:#fff;box-sizing:border-box;
+  }
+  .form-field textarea{resize:vertical;min-height:50px;}
+  .form-actions{display:flex;gap:8px;margin:-4px 0 20px;flex-wrap:wrap;}
+  .record-row{border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;cursor:pointer;}
+  .record-row:hover{border-color:var(--teal);}
+  .record-row-top{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;}
+  .record-row-id{font-family:'Fraunces',serif;font-weight:600;font-size:12.5px;color:var(--ink-soft);}
+  .record-row-title{font-size:13.5px;font-weight:600;color:var(--ink);}
+  .record-row-meta{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  .loading-msg{padding:20px;color:var(--ink-soft);font-size:13px;}
 </style>
 </head>
 <body>
@@ -575,11 +598,13 @@ const PROMPTS_DATA = [
    notes:"Generic analytical use case."},
 ];
 
-// Still blank in the workbook — resend the Excel once these are filled in.
-const MEETINGS_DATA = [];
-const STATUS_DATA = [];
-const SUPPORT_LOG = [];
-const USERS_DATA = [];
+// Loaded live from Supabase once you add records — see the add/edit forms
+// on each tab. Starts empty until the SQL in supabase-setup-part2.sql has
+// been run and records exist.
+let MEETINGS_DATA = [];
+let STATUS_DATA = [];
+let SUPPORT_LOG = [];
+let USERS_DATA = [];
 
 let promptFilter = 'All';
 let promptSearch = '';
@@ -654,6 +679,26 @@ function subscribeToChanges(){
       }
     })
     .subscribe();
+
+  // Same pattern for the four editable tabs — if you're looking at that
+  // page when someone else saves a change, it refreshes automatically.
+  const liveTables = [
+    {table:'meetings', pageId:'meetings'},
+    {table:'management_status', pageId:'status'},
+    {table:'support_log', pageId:'support'},
+    {table:'pilot_users', pageId:'users'},
+  ];
+  liveTables.forEach(({table, pageId}) => {
+    supabase
+      .channel(table + '_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
+        const pageEl = document.getElementById('page-' + pageId);
+        if (pageEl && pageEl.classList.contains('active') && PAGE_RENDER[pageId]) {
+          PAGE_RENDER[pageId]();
+        }
+      })
+      .subscribe();
+  });
 }
 
 function computeAgg(taskList){
@@ -965,26 +1010,59 @@ function renderRACI(){
 // ---------------------------------------------------------------------
 // Weekly Meetings
 // ---------------------------------------------------------------------
-function renderMeetings(){
+async function renderMeetings(){
+  const wrap = document.getElementById('meetingsTableWrap');
+  wrap.innerHTML = '<div class="loading-msg">Loading…</div>';
+  await loadDataset('meetings');
+
   const total = MEETINGS_DATA.length;
   const completed = MEETINGS_DATA.filter(x=>x.status==='Completed').length;
   const planned = MEETINGS_DATA.filter(x=>x.status==='Planned').length;
   document.getElementById('meetingsKpi').innerHTML = [
     [total,'Meetings logged'], [completed,'Completed'], [planned,'Planned']
   ].map(([n,l])=>'<div class="kpi-card"><div class="kpi-num">'+n+'</div><div class="kpi-label">'+l+'</div></div>').join('');
-
   document.getElementById('meetingsFilters').innerHTML = '';
-  const wrap = document.getElementById('meetingsTableWrap');
+
+  wrap.innerHTML =
+    '<button class="reset-btn btn-primary add-btn" id="addMeetingBtn">+ Add meeting</button>' +
+    '<div id="meetingFormArea"></div>' +
+    '<div id="meetingRows"></div>';
+  document.getElementById('addMeetingBtn').onclick = () => openRecordForm('meetings', 'meetingFormArea', null);
+
+  const rows = document.getElementById('meetingRows');
   if (!total){
-    wrap.innerHTML = '<div class="empty-state"><b>No meetings logged yet</b>The Weekly Meeting Log tab in the Excel tracker is still a blank template (MTG-001 – MTG-030, all "Planned"). Fill in dates, topics and outcomes in Excel and resend it to populate this view.</div>';
+    rows.innerHTML = '<div class="empty-state"><b>No meetings logged yet</b>Click "+ Add meeting" above to log the first one.</div>';
     return;
   }
+  const statusCol = {Planned:STATUS_COLOR['Not Started'], Completed:STATUS_COLOR['Completed'], Cancelled:STATUS_COLOR['Blocked'], Rescheduled:STATUS_COLOR['In Progress']};
+  rows.innerHTML = MEETINGS_DATA.map(m=>{
+    const col = statusCol[m.status] || STATUS_COLOR['Not Started'];
+    return '<div class="record-row" data-id="' + m.id + '">' +
+      '<div class="record-row-top">' +
+        '<span class="record-row-id">' + m.id + '</span>' +
+        '<span class="status-pill" style="color:' + col.c + ';background:' + col.bg + '">' + (m.status||'Planned') + '</span>' +
+      '</div>' +
+      '<div class="record-row-title">' + (m.topics || 'Untitled meeting') + '</div>' +
+      '<div class="record-row-meta">' + (m.meeting_date || 'No date set') + (m.week ? ' · ' + m.week : '') + (m.participants ? ' · ' + m.participants : '') + '</div>' +
+    '</div>';
+  }).join('');
+  document.querySelectorAll('#meetingRows .record-row').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const rec = MEETINGS_DATA.find(x=>x.id===el.getAttribute('data-id'));
+      openRecordForm('meetings', 'meetingFormArea', rec);
+      document.getElementById('meetingFormArea').scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  });
 }
 
 // ---------------------------------------------------------------------
 // Management Status
 // ---------------------------------------------------------------------
-function renderStatusPage(){
+async function renderStatusPage(){
+  const wrap = document.getElementById('statusTableWrap');
+  wrap.innerHTML = '<div class="loading-msg">Loading…</div>';
+  await loadDataset('status');
+
   const total = STATUS_DATA.length;
   document.getElementById('statusKpi').innerHTML = [
     [total,'Status reports logged'],
@@ -993,17 +1071,42 @@ function renderStatusPage(){
     [STATUS_DATA.filter(s=>s.overall==='Red').length,'Red weeks'],
   ].map(([n,l])=>'<div class="kpi-card"><div class="kpi-num">'+n+'</div><div class="kpi-label">'+l+'</div></div>').join('');
 
-  const wrap = document.getElementById('statusTableWrap');
+  wrap.innerHTML =
+    '<button class="reset-btn btn-primary add-btn" id="addStatusBtn">+ Add weekly status</button>' +
+    '<div id="statusFormArea"></div>' +
+    '<div id="statusRows"></div>';
+  document.getElementById('addStatusBtn').onclick = () => openRecordForm('status', 'statusFormArea', null);
+
+  const rows = document.getElementById('statusRows');
   if (!total){
-    wrap.innerHTML = '<div class="empty-state"><b>No status reports yet</b>Management Status is linked to the Weekly Meeting Log through the Primary Meeting ID — once meetings are logged in Excel and resent, the weekly leadership update will show here automatically.</div>';
+    rows.innerHTML = '<div class="empty-state"><b>No status reports yet</b>Click "+ Add weekly status" above — link it to a meeting via Primary Meeting ID once that meeting exists.</div>';
     return;
   }
+  const ragCol = {Green:{c:'var(--done)',bg:'var(--done-soft)'}, Amber:{c:'var(--progress)',bg:'var(--progress-soft)'}, Red:{c:'var(--blocked)',bg:'var(--blocked-soft)'}};
+  rows.innerHTML = STATUS_DATA.map(s=>{
+    const col = ragCol[s.overall] || ragCol.Green;
+    return '<div class="record-row" data-id="' + s.id + '">' +
+      '<div class="record-row-top">' +
+        '<span class="record-row-id">' + s.id + '</span>' +
+        '<span class="status-pill" style="color:' + col.c + ';background:' + col.bg + '">' + (s.overall||'Green') + '</span>' +
+      '</div>' +
+      '<div class="record-row-title">' + (s.reporting_week || 'Unlabeled week') + (s.phase ? ' · ' + s.phase : '') + '</div>' +
+      '<div class="record-row-meta">' + (s.progress_pct != null ? s.progress_pct + '% progress' : 'No progress % set') + (s.primary_meeting_id ? ' · Meeting ' + s.primary_meeting_id : '') + '</div>' +
+    '</div>';
+  }).join('');
+  document.querySelectorAll('#statusRows .record-row').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const rec = STATUS_DATA.find(x=>x.id===el.getAttribute('data-id'));
+      openRecordForm('status', 'statusFormArea', rec);
+      document.getElementById('statusFormArea').scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  });
 }
 
 // ---------------------------------------------------------------------
 // Support & Communication
 // ---------------------------------------------------------------------
-function renderSupportPage(){
+async function renderSupportPage(){
   const mechGrid = document.getElementById('mechGrid');
   mechGrid.innerHTML = SUPPORT_MECHANISMS.map(mech =>
     '<div class="mech-card"><h4>' + mech.name + '</h4>' +
@@ -1012,6 +1115,10 @@ function renderSupportPage(){
     '<div class="mech-owner">Owner: ' + mech.owner + '</div>' +
     '</div>'
   ).join('');
+
+  const wrap = document.getElementById('supportTableWrap');
+  wrap.innerHTML = '<div class="loading-msg">Loading…</div>';
+  await loadDataset('support');
 
   const open = SUPPORT_LOG.filter(s=>s.status==='Open').length;
   const inProgress = SUPPORT_LOG.filter(s=>s.status==='In Progress').length;
@@ -1024,38 +1131,271 @@ function renderSupportPage(){
     [highCrit,'High / critical open'], [tips,'Tips shared'],
   ].map(([n,l])=>'<div class="kpi-card"><div class="kpi-num">'+n+'</div><div class="kpi-label">'+l+'</div></div>').join('');
 
-  const wrap = document.getElementById('supportTableWrap');
+  wrap.innerHTML =
+    '<button class="reset-btn btn-primary add-btn" id="addSupportBtn">+ Add log entry</button>' +
+    '<div id="supportFormArea"></div>' +
+    '<div id="supportRows"></div>';
+  document.getElementById('addSupportBtn').onclick = () => openRecordForm('support', 'supportFormArea', null);
+
+  const rows = document.getElementById('supportRows');
   if (!SUPPORT_LOG.length){
-    wrap.innerHTML = '<div class="empty-state"><b>No support log entries yet</b>The Support &amp; Communication log (SUP-001 – SUP-060) is still blank in the workbook. Once issues, questions and tips are logged in Excel and resent, they will appear here with live counters above.</div>';
+    rows.innerHTML = '<div class="empty-state"><b>No support log entries yet</b>Click "+ Add log entry" above to log an issue, question, tip or announcement.</div>';
     return;
   }
+  const statusCol = {Open:STATUS_COLOR['Not Started'], 'In Progress':STATUS_COLOR['In Progress'], Resolved:STATUS_COLOR['Completed'], Closed:STATUS_COLOR['Completed'], 'On Hold':STATUS_COLOR['Blocked']};
+  const priorityCol = {Low:{c:'var(--notstarted)',bg:'var(--notstarted-soft)'}, Medium:{c:'var(--progress)',bg:'var(--progress-soft)'}, High:{c:'var(--blocked)',bg:'var(--blocked-soft)'}, Critical:{c:'var(--blocked)',bg:'var(--blocked-soft)'}};
+  rows.innerHTML = SUPPORT_LOG.map(s=>{
+    const col = statusCol[s.status] || STATUS_COLOR['Not Started'];
+    const pcol = priorityCol[s.priority] || priorityCol.Medium;
+    return '<div class="record-row" data-id="' + s.id + '">' +
+      '<div class="record-row-top">' +
+        '<span class="record-row-id">' + s.id + '</span>' +
+        '<span style="display:flex;gap:6px;">' +
+          '<span class="badge" style="color:' + pcol.c + ';background:' + pcol.bg + '">' + (s.priority||'Medium') + '</span>' +
+          '<span class="status-pill" style="color:' + col.c + ';background:' + col.bg + '">' + (s.status||'Open') + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<div class="record-row-title">' + (s.subject || 'Untitled item') + '</div>' +
+      '<div class="record-row-meta">' + (s.type||'') + (s.channel ? ' · ' + s.channel : '') + (s.owner ? ' · Owner: ' + s.owner : '') + '</div>' +
+    '</div>';
+  }).join('');
+  document.querySelectorAll('#supportRows .record-row').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const rec = SUPPORT_LOG.find(x=>x.id===el.getAttribute('data-id'));
+      openRecordForm('support', 'supportFormArea', rec);
+      document.getElementById('supportFormArea').scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  });
 }
 
 // ---------------------------------------------------------------------
 // Pilot Users
 // ---------------------------------------------------------------------
 function computeReadiness(u){
-  return (u.license==='Assigned' && u.accessTested==='Yes' && u.training==='Completed' && u.preSurvey==='Completed')
+  return (u.license==='Assigned' && u.access_tested==='Yes' && u.training==='Completed' && u.pre_survey==='Completed')
     ? 'Ready' : 'Pending';
 }
 
-function renderUsersPage(){
+// ---------------------------------------------------------------------
+// Generic add/edit/delete form engine — shared by Meetings, Management
+// Status, Support Log and Pilot Users so each tab isn't hand-coded twice.
+// ---------------------------------------------------------------------
+const FIELD_SCHEMAS = {
+  meetings: [
+    {key:'meeting_date', label:'Meeting Date', type:'date'},
+    {key:'week', label:'Week', type:'text'},
+    {key:'status', label:'Status', type:'select', options:['Planned','Completed','Cancelled','Rescheduled']},
+    {key:'participants', label:'Participants', type:'text'},
+    {key:'topics', label:'Topics Discussed', type:'textarea'},
+    {key:'outcomes', label:'Key Outcomes / Decisions', type:'textarea'},
+    {key:'actions', label:'Actions Agreed', type:'textarea'},
+    {key:'action_owner', label:'Action Owner', type:'text'},
+    {key:'due_date', label:'Due Date', type:'date'},
+    {key:'blockers', label:'Blockers / Escalations', type:'textarea'},
+    {key:'next_meeting_date', label:'Next Meeting Date', type:'date'},
+    {key:'notes', label:'Notes', type:'textarea'},
+  ],
+  status: [
+    {key:'reporting_week', label:'Reporting Week', type:'text'},
+    {key:'primary_meeting_id', label:'Primary Meeting ID', type:'text'},
+    {key:'meeting_date', label:'Meeting Date', type:'date'},
+    {key:'overall', label:'Overall Status', type:'select', options:['Green','Amber','Red']},
+    {key:'phase', label:'Current Phase', type:'select', options:MILESTONES.map(m=>m.name)},
+    {key:'progress_pct', label:'Progress %', type:'number'},
+    {key:'achievements', label:'Key Achievements / Outcomes', type:'textarea'},
+    {key:'next_priorities', label:'Next Week Priorities', type:'textarea'},
+    {key:'blockers', label:'Key Blockers', type:'textarea'},
+    {key:'decisions_required', label:'Decisions Required', type:'textarea'},
+    {key:'pilot_user_status', label:'Pilot User Status', type:'text'},
+    {key:'comments', label:'Management Comments', type:'textarea'},
+    {key:'date_shared', label:'Date Shared', type:'date'},
+  ],
+  support: [
+    {key:'log_date', label:'Date', type:'date'},
+    {key:'type', label:'Type', type:'select', options:['Support Issue','Question','Weekly Tip','Email Tip','Announcement','Feedback']},
+    {key:'channel', label:'Channel', type:'select', options:['Support Mailing Group','Webex Teams','Email','Weekly Meeting','Other']},
+    {key:'subject', label:'Subject / Issue / Tip', type:'text'},
+    {key:'raised_by', label:'Raised By / Audience', type:'text'},
+    {key:'owner', label:'Owner', type:'text'},
+    {key:'priority', label:'Priority', type:'select', options:['Low','Medium','High','Critical']},
+    {key:'status', label:'Status', type:'select', options:['Open','In Progress','Resolved','Closed','On Hold']},
+    {key:'linked_meeting_id', label:'Linked Meeting ID', type:'text'},
+    {key:'linked_user_id', label:'Linked User ID', type:'text'},
+    {key:'linked_prompt_id', label:'Linked Prompt ID', type:'text'},
+    {key:'outcome', label:'Outcome / Resolution', type:'textarea'},
+    {key:'follow_up_date', label:'Follow-up Date', type:'date'},
+    {key:'notes', label:'Notes', type:'textarea'},
+  ],
+  users: [
+    {key:'name', label:'Name', type:'text'},
+    {key:'email', label:'Email', type:'text'},
+    {key:'department', label:'Department', type:'text'},
+    {key:'role', label:'Role / Persona', type:'text'},
+    {key:'pilot_status', label:'Pilot Status', type:'select', options:['Selected','Active','Paused','Removed']},
+    {key:'license', label:'License', type:'select', options:['Not Assigned','Assigned','Issue']},
+    {key:'access_tested', label:'Access Tested', type:'select', options:['No','Yes','Issue']},
+    {key:'training', label:'Training', type:'select', options:['Not Started','Scheduled','Completed']},
+    {key:'pre_survey', label:'Pre-Survey', type:'select', options:['Not Started','Completed']},
+    {key:'usage', label:'Usage Status', type:'select', options:['Not Started','Active','Low Usage','Inactive']},
+    {key:'open_support_issues', label:'Open Support Issues', type:'number'},
+    {key:'post_survey', label:'Post-Survey', type:'select', options:['Not Started','Completed']},
+    {key:'notes', label:'Notes', type:'textarea'},
+  ],
+};
+
+const DATASETS = {
+  meetings: {table:'meetings', prefix:'MTG', schema:FIELD_SCHEMAS.meetings, get:()=>MEETINGS_DATA, set:v=>{MEETINGS_DATA=v;}},
+  status:   {table:'management_status', prefix:'STAT', schema:FIELD_SCHEMAS.status, get:()=>STATUS_DATA, set:v=>{STATUS_DATA=v;}},
+  support:  {table:'support_log', prefix:'SUP', schema:FIELD_SCHEMAS.support, get:()=>SUPPORT_LOG, set:v=>{SUPPORT_LOG=v;}},
+  users:    {table:'pilot_users', prefix:'USR', schema:FIELD_SCHEMAS.users, get:()=>USERS_DATA, set:v=>{USERS_DATA=v;}},
+};
+
+async function loadDataset(key){
+  const cfg = DATASETS[key];
+  try {
+    const { data, error } = await supabase.from(cfg.table).select('*').order('id');
+    if (error) throw error;
+    cfg.set(data || []);
+  } catch(e) {
+    console.error('load ' + key, e);
+    cfg.set(cfg.get() || []);
+  }
+}
+
+function nextRecordId(prefix, arr){
+  let max = 0;
+  (arr || []).forEach(r=>{
+    const n = parseInt(String(r.id).split('-')[1], 10);
+    if (!isNaN(n) && n > max) max = n;
+  });
+  return prefix + '-' + String(max + 1).padStart(3, '0');
+}
+
+function fieldHtml(ns, f, existing){
+  const val = existing ? (existing[f.key] ?? '') : '';
+  const id = 'ff_' + ns + '_' + f.key;
+  let input;
+  if (f.type === 'select'){
+    input = '<select id="' + id + '">' + f.options.map(o =>
+      '<option value="' + o + '"' + (String(val) === o ? ' selected' : '') + '>' + o + '</option>'
+    ).join('') + '</select>';
+  } else if (f.type === 'textarea'){
+    input = '<textarea id="' + id + '" rows="2">' + (val || '') + '</textarea>';
+  } else {
+    const safeVal = String(val ?? '').replace(/"/g, '&quot;');
+    input = '<input id="' + id + '" type="' + (f.type || 'text') + '" value="' + safeVal + '">';
+  }
+  return '<div class="form-field"><label>' + f.label + '</label>' + input + '</div>';
+}
+
+function readFieldValue(ns, f){
+  const el = document.getElementById('ff_' + ns + '_' + f.key);
+  const v = el.value;
+  return v === '' ? null : v;
+}
+
+function openRecordForm(key, areaId, existing){
+  const cfg = DATASETS[key];
+  const area = document.getElementById(areaId);
+  area.innerHTML =
+    '<div class="form-grid">' + cfg.schema.map(f => fieldHtml(key, f, existing)).join('') + '</div>' +
+    '<div class="form-actions">' +
+      '<button class="reset-btn btn-primary" id="saveBtn_' + key + '">Save</button>' +
+      '<button class="reset-btn" id="cancelBtn_' + key + '">Cancel</button>' +
+      (existing ? '<button class="reset-btn btn-danger" id="deleteBtn_' + key + '">Delete</button>' : '') +
+    '</div>';
+
+  document.getElementById('cancelBtn_' + key).onclick = () => { area.innerHTML = ''; };
+
+  document.getElementById('saveBtn_' + key).onclick = async () => {
+    const payload = {};
+    cfg.schema.forEach(f => { payload[f.key] = readFieldValue(key, f); });
+    payload.id = existing ? existing.id : nextRecordId(cfg.prefix, cfg.get());
+    try {
+      if (existing) {
+        await supabase.from(cfg.table).update(payload).eq('id', existing.id);
+      } else {
+        await supabase.from(cfg.table).insert(payload);
+      }
+    } catch(e) {
+      alert('Could not save — check your connection and that supabase-setup-part2.sql has been run.');
+      console.error(e);
+      return;
+    }
+    area.innerHTML = '';
+    await PAGE_RENDER[key]();
+  };
+
+  if (existing) {
+    document.getElementById('deleteBtn_' + key).onclick = async () => {
+      if (!confirm('Delete record ' + existing.id + '? This cannot be undone.')) return;
+      try {
+        await supabase.from(cfg.table).delete().eq('id', existing.id);
+      } catch(e) {
+        alert('Could not delete — check your connection.');
+        console.error(e);
+        return;
+      }
+      area.innerHTML = '';
+      await PAGE_RENDER[key]();
+    };
+  }
+}
+
+async function renderUsersPage(){
+  const wrap = document.getElementById('usersTableWrap');
+  wrap.innerHTML = '<div class="loading-msg">Loading…</div>';
+  await loadDataset('users');
+
   const total = USERS_DATA.length;
   document.getElementById('usersKpi').innerHTML = [
     [total,'Total users'],
     [USERS_DATA.filter(u=>u.license==='Assigned').length,'Licenses assigned'],
-    [USERS_DATA.filter(u=>u.accessTested==='Yes').length,'Access tested'],
+    [USERS_DATA.filter(u=>u.access_tested==='Yes').length,'Access tested'],
     [USERS_DATA.filter(u=>u.training==='Completed').length,'Training completed'],
-    [USERS_DATA.filter(u=>u.preSurvey==='Completed').length,'Pre-survey completed'],
+    [USERS_DATA.filter(u=>u.pre_survey==='Completed').length,'Pre-survey completed'],
     [USERS_DATA.filter(u=>u.usage==='Active').length,'Active users'],
-    [USERS_DATA.filter(u=>u.postSurvey==='Completed').length,'Post-survey completed'],
+    [USERS_DATA.filter(u=>u.post_survey==='Completed').length,'Post-survey completed'],
   ].map(([n,l])=>'<div class="kpi-card"><div class="kpi-num">'+n+'</div><div class="kpi-label">'+l+'</div></div>').join('');
 
-  const wrap = document.getElementById('usersTableWrap');
+  wrap.innerHTML =
+    '<button class="reset-btn btn-primary add-btn" id="addUserBtn">+ Add pilot user</button>' +
+    '<div id="userFormArea"></div>' +
+    '<div id="userRows"></div>';
+  document.getElementById('addUserBtn').onclick = () => openRecordForm('users', 'userFormArea', null);
+
+  const rows = document.getElementById('userRows');
+  const term = usersSearchTerm.trim().toLowerCase();
+  let list = USERS_DATA;
+  if (term) list = list.filter(u => ((u.name||'')+' '+(u.email||'')+' '+(u.department||'')+' '+(u.role||'')).toLowerCase().includes(term));
+
   if (!total){
-    wrap.innerHTML = '<div class="empty-state"><b>No pilot users logged yet</b>The Pilot User Tracker (USR-001 – USR-053) is still a blank template — names, departments and readiness fields are not filled in yet. Resend the Excel once they are, and this table (with search) will populate automatically.</div>';
+    rows.innerHTML = '<div class="empty-state"><b>No pilot users logged yet</b>Click "+ Add pilot user" above to add the first one.</div>';
     return;
   }
+  if (!list.length){
+    rows.innerHTML = '<div class="empty-state"><b>No users match your search</b>Try a different name, department or role.</div>';
+    return;
+  }
+  rows.innerHTML = list.map(u=>{
+    const readiness = computeReadiness(u);
+    const rcol = readiness === 'Ready' ? {c:'var(--done)',bg:'var(--done-soft)'} : {c:'var(--notstarted)',bg:'var(--notstarted-soft)'};
+    return '<div class="record-row" data-id="' + u.id + '">' +
+      '<div class="record-row-top">' +
+        '<span class="record-row-id">' + u.id + '</span>' +
+        '<span class="badge" style="color:' + rcol.c + ';background:' + rcol.bg + '">' + readiness + '</span>' +
+      '</div>' +
+      '<div class="record-row-title">' + (u.name || 'Unnamed user') + '</div>' +
+      '<div class="record-row-meta">' + (u.department||'') + (u.role ? ' · ' + u.role : '') + ' · ' + (u.pilot_status||'Selected') + '</div>' +
+    '</div>';
+  }).join('');
+  document.querySelectorAll('#userRows .record-row').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const rec = USERS_DATA.find(x=>x.id===el.getAttribute('data-id'));
+      openRecordForm('users', 'userFormArea', rec);
+      document.getElementById('userFormArea').scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  });
 }
 document.getElementById('usersSearch').addEventListener('input', (e)=>{
   usersSearchTerm = e.target.value;
