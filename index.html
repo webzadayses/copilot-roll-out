@@ -133,6 +133,9 @@
   .m-track{height:5px;background:#E4E7EF;border-radius:4px;overflow:hidden;margin-top:6px;}
   .m-fill{height:100%;background:var(--teal);border-radius:4px;transition:width .35s ease;}
   .m-frac{font-size:var(--text-sm);color:var(--ink-soft);flex:none;white-space:nowrap;}
+  .m-status-block{flex:none;text-align:right;}
+  .m-status-word{font-size:var(--text-sm);font-weight:700;white-space:nowrap;}
+  .m-due{font-size:var(--text-2xs);color:var(--progress);font-weight:600;white-space:nowrap;margin-top:2px;}
 
   /* Section divider */
   .section-title{
@@ -554,11 +557,11 @@ const SUPABASE_ANON_KEY = 'sb_publishable_2oGI02OQS59qK4OGMgD6Pw_B0GubrfM';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const MILESTONES = [
-  {n:1, name:"Scope & Baseline"},
-  {n:2, name:"Readiness & Governance"},
-  {n:3, name:"Enablement & Adoption"},
-  {n:4, name:"Pilot Execution"},
-  {n:5, name:"Measure & Close"},
+  {n:1, name:"Scope & Baseline", due:null},
+  {n:2, name:"Readiness & Governance", due:"24 Sep 2026"},
+  {n:3, name:"Enablement & Adoption", due:"01 Oct 2026"},
+  {n:4, name:"Pilot Execution", due:"07 Dec 2026"},
+  {n:5, name:"Measure & Close", due:"10 Dec 2026"},
 ];
 
 const TASKS = [
@@ -573,28 +576,25 @@ const TASKS = [
   {key:'A06', id:'A06', m:2, title:'Confirm roles, approvals and escalation path for IIH, Noventiq and MoC', lead:'IIH', support:'Noventiq', owner:'MoC D&T', output:'Agreed ownership and escalation matrix', channel:'Project kickoff / weekly project meeting', source:'New suggested activity', status:'Not Started'},
   {key:'A07', id:'A07', m:2, title:'Baseline current business metrics', lead:'IIH', support:'MoC Pilot Users', owner:'MoC Business Departments', output:'Completed pre-pilot assessment / baseline report + signing NDA', channel:'Survey + project repository', source:'Original', status:'In Progress'},
   {key:'A08', id:'A08', m:2, title:'Validate Microsoft 365 and Copilot technical prerequisites applicable to MoC', lead:'Noventiq', support:'IIH', owner:'MoC Infrastructure / M365 Administration', output:'Technical readiness checklist', channel:'Technical workshop', source:'Original – clarified for MoC', status:'Completed'},
-  {key:'A09-1', id:'A09', m:2, title:'Review security and compliance posture', lead:'Noventiq', support:'IIH', owner:'MoC Cybersecurity', output:'Security/compliance assessment findings', channel:'Cybersecurity workshop', source:'Original – logged, no action required', status:'Not Started'},
-  {key:'A09-2', id:'A10', m:2, title:'Assess Copilot readiness from a security perspective', lead:'Noventiq', support:'IIH', owner:'MoC Cybersecurity', output:'Security readiness assessment', channel:'Cybersecurity workshop', source:'Original – logged, no action required', status:'Not Started'},
-  {key:'A12', id:'A11', m:2, title:'Assign pilot licenses and validate user access before launch', lead:'MoC M365 Administration', support:'Noventiq / IIH', owner:'MoC Infrastructure / M365 Administration', output:'Pilot users successfully enabled and tested', channel:'Technical session + issue tracker', source:'New suggested activity', status:'Not Started'},
-  {key:'A09-3', id:'A12', m:2, title:'Recommend and track required remediation actions', lead:'Noventiq', support:'IIH', owner:'MoC Cybersecurity / M365 Administration', output:'Remediation action list with owners', channel:'Technical/Cybersecurity follow-up', source:'Original', status:'Not Started'},
+  {key:'A12', id:'A09', m:2, title:'Assign pilot licenses and validate user access before launch', lead:'MoC M365 Administration', support:'Noventiq / IIH', owner:'MoC Infrastructure / M365 Administration', output:'Pilot users successfully enabled and tested', channel:'Technical session + issue tracker', source:'New suggested activity', status:'Not Started'},
 
   // 3. Enablement & Adoption
-  {key:'A13-DRAFT', id:'A13', m:3, title:'Email body drafts', lead:'IIH', support:'MoC D&T', owner:'MoC D&T', output:'Email body to be shared with executives and non-executives', channel:'Email', source:'New suggested activity', status:'Not Started'},
-  {key:'A13', id:'A14', m:3, title:'Email circulation for all selected users', lead:'MoC D&T', support:'IIH', owner:'MoC D&T', output:'Email sent explaining the Copilot enablement process, planned workshops and support needed', channel:'Email', source:'New suggested activity', status:'Completed'},
-  {key:'A16', id:'A15', m:3, title:'Deliver executive enablement session', lead:'Noventiq', support:'IIH', owner:'MoC Leadership', output:'Executive session completed', channel:'Executives training session', source:'Original', status:'Not Started', extra:'Live prompt-engineering exercises; showcase Copilot Chat, Microsoft 365 Copilot and Agents; explain Agents and Agent Builder; present the Copilot vision and roadmap; demonstrate MoC-relevant and industry use cases.'},
-  {key:'A17', id:'A16', m:3, title:"Deliver non-executives' enablement and training", lead:'Noventiq', support:'IIH', owner:'MoC Pilot Users', output:'Training attendance and materials', channel:'Non-executive training sessions', source:'Original', status:'Not Started', extra:'Live prompt-engineering exercises; showcase Copilot Chat, Microsoft 365 Copilot and Agents; explain Agents and Agent Builder; present the Copilot vision and roadmap; demonstrate MoC-relevant and industry use cases.'},
-  {key:'A18', id:'A17', m:3, title:'Launch pilot communication and a single pilot support/feedback channel', lead:'IIH', support:'Noventiq', owner:'MoC D&T / Pilot Users', output:'Welcome communication + active pilot channel', channel:'Microsoft Teams channel + email', source:'New suggested activity', status:'Not Started'},
+  {key:'A13-DRAFT', id:'A10', m:3, title:'Email body drafts', lead:'IIH', support:'MoC D&T', owner:'MoC D&T', output:'Email body to be shared with executives and non-executives', channel:'Email', source:'New suggested activity', status:'Not Started'},
+  {key:'A13', id:'A11', m:3, title:'Email circulation for all selected users', lead:'MoC D&T', support:'IIH', owner:'MoC D&T', output:'Email sent explaining the Copilot enablement process, planned workshops and support needed', channel:'Email', source:'New suggested activity', status:'Completed'},
+  {key:'A16', id:'A12', m:3, title:'Deliver executive enablement session', lead:'Noventiq', support:'IIH', owner:'MoC Leadership', output:'Executive session completed', channel:'Executives training session', source:'Original', status:'Not Started', extra:'Live prompt-engineering exercises; showcase Copilot Chat, Microsoft 365 Copilot and Agents; explain Agents and Agent Builder; present the Copilot vision and roadmap; demonstrate MoC-relevant and industry use cases.'},
+  {key:'A17', id:'A13', m:3, title:"Deliver non-executives' enablement and training", lead:'Noventiq', support:'IIH', owner:'MoC Pilot Users', output:'Training attendance and materials', channel:'Non-executive training sessions', source:'Original', status:'Not Started', extra:'Live prompt-engineering exercises; showcase Copilot Chat, Microsoft 365 Copilot and Agents; explain Agents and Agent Builder; present the Copilot vision and roadmap; demonstrate MoC-relevant and industry use cases.'},
+  {key:'A18', id:'A14', m:3, title:'Launch pilot communication and a single pilot support/feedback channel', lead:'IIH', support:'Noventiq', owner:'MoC D&T / Pilot Users', output:'Welcome communication + active pilot channel', channel:'Microsoft Teams channel + email', source:'New suggested activity', status:'Not Started'},
 
   // 4. Pilot Execution
-  {key:'A19', id:'A18', m:4, title:'Track pilot issues, questions and required actions', lead:'IIH & Noventiq', support:'Noventiq', owner:'MoC M365 Administration / Cybersecurity as needed', output:'Open/closed issue log', channel:'Pilot Teams channel + weekly project meeting', source:'New suggested activity', status:'Not Started'},
-  {key:'A21', id:'A19', m:4, title:'Conduct a mid-pilot adoption and blocker review', lead:'IIH', support:'Noventiq', owner:'MoC D&T / Pilot Departments', output:'Mid-pilot status and corrective actions', channel:'Weekly project meeting / management update', source:'New suggested activity', status:'Not Started'},
-  {key:'A22', id:'A20', m:4, title:'Provide recurring tips, prompt and use-case guidance during the pilot', lead:'IIH', support:'Noventiq', owner:'MoC Pilot Users', output:'Adoption communications / prompt guidance', channel:'Pilot Teams channel', source:'New suggested activity', status:'Not Started'},
+  {key:'A19', id:'A15', m:4, title:'Track pilot issues, questions and required actions', lead:'IIH & Noventiq', support:'Noventiq', owner:'MoC M365 Administration / Cybersecurity as needed', output:'Open/closed issue log', channel:'Pilot Teams channel + weekly project meeting', source:'New suggested activity', status:'Not Started'},
+  {key:'A21', id:'A16', m:4, title:'Conduct a mid-pilot adoption and blocker review', lead:'IIH', support:'Noventiq', owner:'MoC D&T / Pilot Departments', output:'Mid-pilot status and corrective actions', channel:'Weekly project meeting / management update', source:'New suggested activity', status:'Not Started'},
+  {key:'A22', id:'A17', m:4, title:'Provide recurring tips, prompt and use-case guidance during the pilot', lead:'IIH', support:'Noventiq', owner:'MoC Pilot Users', output:'Adoption communications / prompt guidance', channel:'Pilot Teams channel', source:'New suggested activity', status:'Not Started'},
 
   // 5. Measure & Close
-  {key:'A23', id:'A21', m:5, title:'Collect Copilot usage insights and analytics', lead:'IIH & Noventiq', support:'Noventiq', owner:'MoC D&T / M365 Administration', output:'Usage/adoption evidence', channel:'Analytics review + project report', source:'Original – wording simplified', status:'Not Started'},
-  {key:'A24', id:'A22', m:5, title:'Complete post-pilot assessment and compare against baseline', lead:'IIH', support:'Noventiq', owner:'MoC Pilot Users / Business Departments', output:'Post-pilot assessment and KPI comparison', channel:'Survey + assessment report', source:'Original – expanded for traceability', status:'Not Started'},
-  {key:'A25', id:'A23', m:5, title:'Document lessons learned, value achieved and recommendations', lead:'IIH', support:'Noventiq', owner:'MoC D&T', output:'Pilot closure report', channel:'Management review', source:'New suggested activity', status:'Not Started'},
-  {key:'A26', id:'A24', m:5, title:'Make formal decisions to scale, improve/extend, or close the pilot', lead:'MoC D&T', support:'IIH / Noventiq', owner:'MoC Leadership', output:'Documented decision and next steps', channel:'Steering / leadership decision meeting', source:'New suggested activity', status:'Not Started'},
+  {key:'A23', id:'A18', m:5, title:'Collect Copilot usage insights and analytics', lead:'IIH & Noventiq', support:'Noventiq', owner:'MoC D&T / M365 Administration', output:'Usage/adoption evidence', channel:'Analytics review + project report', source:'Original – wording simplified', status:'Not Started'},
+  {key:'A24', id:'A19', m:5, title:'Complete post-pilot assessment and compare against baseline', lead:'IIH', support:'Noventiq', owner:'MoC Pilot Users / Business Departments', output:'Post-pilot assessment and KPI comparison', channel:'Survey + assessment report', source:'Original – expanded for traceability', status:'Not Started'},
+  {key:'A25', id:'A20', m:5, title:'Document lessons learned, value achieved and recommendations', lead:'IIH', support:'Noventiq', owner:'MoC D&T', output:'Pilot closure report', channel:'Management review', source:'New suggested activity', status:'Not Started'},
+  {key:'A26', id:'A21', m:5, title:'Make formal decisions to scale, improve/extend, or close the pilot', lead:'MoC D&T', support:'IIH / Noventiq', owner:'MoC Leadership', output:'Documented decision and next steps', channel:'Steering / leadership decision meeting', source:'New suggested activity', status:'Not Started'},
 ];
 
 const STATUSES = ['Not Started','In Progress','Completed','Blocked'];
@@ -788,6 +788,9 @@ function render(){
   MILESTONES.forEach(ms=>{
     const tasks = TASKS.filter(t=>t.m===ms.n);
     const a = computeAgg(tasks);
+    const inProgress = tasks.some(t=>statusMap[t.key]==='In Progress');
+    const statusWord = a.pct===100 ? 'Completed' : (inProgress || a.pct>0 ? 'In progress' : 'Planned');
+    const statusColor = a.pct===100 ? 'var(--done)' : (statusWord==='In progress' ? 'var(--progress)' : 'var(--ink-soft)');
     const row = document.createElement('div');
     row.className = 'm-row';
     row.onclick = () => document.getElementById('sec-'+ms.n).scrollIntoView({behavior:'smooth', block:'start'});
@@ -797,7 +800,10 @@ function render(){
         <div class="m-name">${ms.name}</div>
         <div class="m-track"><div class="m-fill" style="width:${a.pct}%"></div></div>
       </div>
-      <div class="m-frac">${a.done}/${a.total}</div>
+      <div class="m-status-block">
+        <div class="m-status-word" style="color:${statusColor}">${statusWord}</div>
+        ${ms.due ? `<div class="m-due">By: ${ms.due}</div>` : ''}
+      </div>
     `;
     mList.appendChild(row);
   });
@@ -855,7 +861,6 @@ function render(){
           <div class="row"><b>MoC owner:</b> ${t.owner}</div>
           <div class="row"><b>Required output / POE:</b> ${t.output}</div>
           <div class="row"><b>Communication:</b> ${t.channel}</div>
-          <div class="tag">${t.source}</div>
           <br>
           <select class="status-select" data-key="${t.key}">
             ${STATUSES.map(opt=>`<option value="${opt}" ${opt===s?'selected':''}>${opt}</option>`).join('')}
