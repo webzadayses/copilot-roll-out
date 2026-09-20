@@ -413,6 +413,38 @@
   .user-card .uc-top{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:var(--space-2);}
   .user-card .uc-name{font-size:var(--text-sm);font-weight:700;color:var(--ink);line-height:1.3;}
   .user-card .uc-role{font-size:var(--text-2xs);color:var(--ink-soft);margin:2px 0 var(--space-2);}
+
+  /* ===== Overview charts ===== */
+  .chart-card{
+    background:var(--panel);border-radius:var(--radius);
+    padding:var(--space-5);margin-bottom:var(--space-5);
+    box-shadow:var(--shadow-1);
+  }
+  .chart-card h3{
+    margin:0 0 var(--space-4);font-size:var(--text-base);font-family:var(--font-display);
+    font-weight:600;color:var(--ink);
+  }
+  .stacked-bar{
+    display:flex;height:28px;border-radius:var(--radius-sm);overflow:hidden;
+    background:var(--notstarted-soft);margin-bottom:var(--space-3);
+  }
+  .stacked-bar-seg{height:100%;transition:width .3s ease;}
+  .stacked-bar-legend{display:flex;flex-wrap:wrap;gap:var(--space-4);font-size:var(--text-sm);color:var(--ink-soft);}
+  .stacked-bar-legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+  .timeline-wrap{padding:var(--space-6) 0 var(--space-2);}
+  .timeline-track{position:relative;height:14px;border-radius:var(--radius-sm);background:var(--notstarted-soft);}
+  .timeline-seg{position:absolute;top:0;height:100%;}
+  .timeline-seg:first-child{border-radius:var(--radius-sm) 0 0 var(--radius-sm);}
+  .timeline-seg:last-child{border-radius:0 var(--radius-sm) var(--radius-sm) 0;}
+  .timeline-labels{position:relative;height:52px;margin-top:var(--space-2);}
+  .timeline-label{position:absolute;top:0;transform:translateX(-50%);text-align:center;width:120px;}
+  .timeline-label .tl-name{font-size:var(--text-2xs);font-weight:700;color:var(--ink);}
+  .timeline-label .tl-date{font-size:var(--text-2xs);color:var(--ink-soft);margin-top:1px;}
+  .timeline-today{position:absolute;top:-6px;bottom:-40px;width:2px;background:var(--teal);}
+  .timeline-today-label{
+    position:absolute;top:-24px;transform:translateX(-50%);
+    font-size:var(--text-2xs);font-weight:700;color:var(--teal);white-space:nowrap;
+  }
 </style>
 </head>
 <body>
@@ -578,7 +610,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const MILESTONES = [
   {n:1, name:"Scope & Baseline", due:null},
   {n:2, name:"Readiness & Governance", due:"24 Sep 2026"},
-  {n:3, name:"Enablement & Adoption", due:"01 Dec 2026"},
+  {n:3, name:"Enablement & Adoption", due:"01 Oct 2026"},
   {n:4, name:"Pilot Execution", due:"07 Dec 2026"},
   {n:5, name:"Measure & Close", due:"10 Dec 2026"},
 ];
@@ -1128,6 +1160,85 @@ function renderOverview(){
   grid.innerHTML = kpis.map(([num,label]) =>
     '<div class="kpi-card"><div class="kpi-num">' + num + '</div><div class="kpi-label">' + label + '</div></div>'
   ).join('');
+
+  renderStatusChart(m.planAgg);
+  renderTimelineChart();
+}
+
+function renderStatusChart(agg){
+  const el = document.getElementById('statusChart');
+  const total = agg.total || 1;
+  const segs = [
+    {label:'Completed', n:agg.done, color:'var(--done)'},
+    {label:'In Progress', n:agg.prog, color:'var(--progress)'},
+    {label:'Not Started', n:agg.not, color:'var(--notstarted)'},
+    {label:'Blocked', n:agg.blocked, color:'var(--blocked)'},
+  ];
+  const bar = segs.filter(s=>s.n>0).map(s =>
+    '<div class="stacked-bar-seg" style="width:' + (s.n/total*100) + '%;background:' + s.color + '" title="' + s.label + ': ' + s.n + '"></div>'
+  ).join('');
+  const legend = segs.map(s =>
+    '<span><span class="dot" style="background:' + s.color + '"></span>' + s.label + ': ' + s.n + '</span>'
+  ).join('');
+  el.innerHTML =
+    '<div class="stacked-bar">' + bar + '</div>' +
+    '<div class="stacked-bar-legend">' + legend + '</div>';
+}
+
+function renderTimelineChart(){
+  const el = document.getElementById('timelineChart');
+
+  // Anchor dates for the overall rollout window. Phase 1 has no explicit
+  // due date (already complete by the time this tracker started), so it's
+  // given a short nominal slot at the very start of the timeline.
+  const start = new Date('2026-07-01');
+  const phaseEnds = {
+    1: new Date('2026-07-15'),
+    2: new Date('2026-09-24'),
+    3: new Date('2026-10-01'),
+    4: new Date('2026-12-07'),
+    5: new Date('2026-12-10'),
+  };
+  const end = phaseEnds[5];
+  const totalMs = end - start;
+  const today = new Date();
+
+  const allTasks = TASKS.concat(CUSTOM_TASKS);
+  let cursor = start;
+  const segHtml = [];
+  const labelHtml = [];
+
+  MILESTONES.forEach(ms=>{
+    const segStart = cursor;
+    const segEnd = phaseEnds[ms.n];
+    cursor = segEnd;
+    const leftPct = (segStart - start) / totalMs * 100;
+    const widthPct = (segEnd - segStart) / totalMs * 100;
+    const tasks = allTasks.filter(t=>t.m===ms.n);
+    const pct = computeAgg(tasks).pct;
+    const color = pct===100 ? 'var(--done)' : (tasks.some(t=>getTaskStatus(t)==='In Progress') || pct>0 ? 'var(--progress)' : 'var(--notstarted)');
+    segHtml.push('<div class="timeline-seg" style="left:' + leftPct + '%;width:' + widthPct + '%;background:' + color + '" title="' + ms.name + '"></div>');
+    const centerPct = leftPct + widthPct/2;
+    labelHtml.push(
+      '<div class="timeline-label" style="left:' + centerPct + '%">' +
+        '<div class="tl-name">0' + ms.n + ' ' + ms.name + '</div>' +
+        '<div class="tl-date">' + (ms.due ? 'By ' + ms.due : 'Completed') + '</div>' +
+      '</div>'
+    );
+  });
+
+  const todayPct = Math.min(100, Math.max(0, (today - start) / totalMs * 100));
+  const todayStr = today.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+
+  el.innerHTML =
+    '<div class="timeline-wrap">' +
+      '<div class="timeline-track">' + segHtml.join('') +
+        '<div class="timeline-today" style="left:' + todayPct + '%">' +
+          '<div class="timeline-today-label" style="left:0">Today · ' + todayStr + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="timeline-labels">' + labelHtml.join('') + '</div>' +
+    '</div>';
 }
 
 // ---------------------------------------------------------------------
