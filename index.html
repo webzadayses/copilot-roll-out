@@ -430,6 +430,30 @@
   }
   .stacked-bar-seg{height:100%;transition:width .3s ease;}
   .stacked-bar-legend{display:flex;flex-wrap:wrap;gap:var(--space-4);font-size:var(--text-sm);color:var(--ink-soft);}
+
+  /* ===== Modern status breakdown ===== */
+  .status-modern-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:var(--space-3);}
+  .status-modern-card{text-align:center;padding:var(--space-4) var(--space-2);border-radius:var(--radius);background:var(--panel);}
+  .status-modern-num{font-family:var(--font-display);font-size:var(--text-2xl);font-weight:600;line-height:1;}
+  .status-modern-label{font-size:var(--text-xs);color:var(--ink-soft);margin-top:6px;font-weight:600;}
+
+  /* ===== Timeline stepper, showing crossed phases ===== */
+  .stepper-wrap{padding:var(--space-4) 0 var(--space-6);overflow-x:auto;}
+  .stepper-track{position:relative;display:flex;min-width:520px;padding:0 20px;}
+  .stepper-line{position:absolute;top:15px;left:20px;right:20px;height:3px;background:var(--notstarted-soft);z-index:0;}
+  .stepper-line-fill{position:absolute;top:15px;left:20px;height:3px;background:var(--done);z-index:1;}
+  .stepper-node{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;}
+  .stepper-dot{
+    width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:var(--text-xs);font-weight:700;color:#fff;border:3px solid var(--paper);
+  }
+  .stepper-dot.crossed{background:var(--done);}
+  .stepper-dot.current{background:var(--progress);}
+  .stepper-dot.upcoming{background:var(--notstarted);}
+  .stepper-name{font-size:var(--text-2xs);font-weight:700;color:var(--ink);margin-top:8px;max-width:110px;}
+  .stepper-date{font-size:var(--text-2xs);color:var(--ink-soft);margin-top:2px;}
+  .stepper-today{position:absolute;top:-6px;bottom:-40px;width:2px;background:var(--teal);z-index:3;}
+  .stepper-today-label{position:absolute;top:-24px;transform:translateX(-50%);font-size:var(--text-2xs);font-weight:700;color:var(--teal);white-space:nowrap;}
   .stacked-bar-legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;}
   .timeline-wrap{padding:var(--space-6) 0 var(--space-2);}
   .timeline-track{position:relative;height:14px;border-radius:var(--radius-sm);background:var(--notstarted-soft);}
@@ -485,19 +509,20 @@
     <h2>Executive Overview</h2>
     <p>Live status across the whole Copilot pilot — every number below is calculated from the tabs on the left, not typed in by hand.</p>
   </div>
-  <div id="overviewRag" style="margin-bottom:10px;"></div>
-  <div class="phase-row" id="phaseRow"></div>
-  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <div class="chart-card">
+    <h3>Project Timeline</h3>
+    <div id="timelineChart"></div>
+  </div>
 
   <div class="chart-card">
     <h3>Activity Status Breakdown</h3>
     <div id="statusChart"></div>
   </div>
 
-  <div class="chart-card">
-    <h3>Project Timeline</h3>
-    <div id="timelineChart"></div>
-  </div>
+  <div id="overviewRag" style="margin-bottom:10px;"></div>
+  <div class="phase-row" id="phaseRow"></div>
+  <div class="kpi-grid" id="kpiGrid"></div>
 </section>
 
 <section id="page-plan" class="page">
@@ -693,7 +718,6 @@ const RACI_COLOR = {
 
 const SUPPORT_MECHANISMS = [
   {name:"Support Mailing Group", purpose:"Single email group for pilot support requests and issue tracking", owner:"MoC D&T / IIH", status:"Not Started", link:"", goLive:""},
-  {name:"Webex Teams Channel", purpose:"Main collaboration channel for pilot questions, support and announcements", owner:"IIH / MoC D&T", status:"Not Started", link:"", goLive:""},
   {name:"Weekly & Email Tips", purpose:"One recurring set of practical Copilot tips shared with pilot users each week, both in the pilot channel and by email through the support mailing group", owner:"IIH / Noventiq", status:"Not Started", link:"", goLive:""},
 ];
 
@@ -1167,22 +1191,15 @@ function renderOverview(){
 
 function renderStatusChart(agg){
   const el = document.getElementById('statusChart');
-  const total = agg.total || 1;
   const segs = [
     {label:'Completed', n:agg.done, color:'var(--done)'},
     {label:'In Progress', n:agg.prog, color:'var(--progress)'},
     {label:'Not Started', n:agg.not, color:'var(--notstarted)'},
     {label:'Blocked', n:agg.blocked, color:'var(--blocked)'},
   ];
-  const bar = segs.filter(s=>s.n>0).map(s =>
-    '<div class="stacked-bar-seg" style="width:' + (s.n/total*100) + '%;background:' + s.color + '" title="' + s.label + ': ' + s.n + '"></div>'
-  ).join('');
-  const legend = segs.map(s =>
-    '<span><span class="dot" style="background:' + s.color + '"></span>' + s.label + ': ' + s.n + '</span>'
-  ).join('');
-  el.innerHTML =
-    '<div class="stacked-bar">' + bar + '</div>' +
-    '<div class="stacked-bar-legend">' + legend + '</div>';
+  el.innerHTML = '<div class="status-modern-grid">' + segs.map(s =>
+    '<div class="status-modern-card"><div class="status-modern-num" style="color:' + s.color + '">' + s.n + '</div><div class="status-modern-label">' + s.label + '</div></div>'
+  ).join('') + '</div>';
 }
 
 function renderTimelineChart(){
@@ -1191,7 +1208,6 @@ function renderTimelineChart(){
   // Anchor dates for the overall rollout window. Phase 1 has no explicit
   // due date (already complete by the time this tracker started), so it's
   // given a short nominal slot at the very start of the timeline.
-  const start = new Date('2026-07-01');
   const phaseEnds = {
     1: new Date('2026-07-15'),
     2: new Date('2026-09-24'),
@@ -1199,46 +1215,44 @@ function renderTimelineChart(){
     4: new Date('2026-12-07'),
     5: new Date('2026-12-10'),
   };
-  const end = phaseEnds[5];
-  const totalMs = end - start;
   const today = new Date();
-
   const allTasks = TASKS.concat(CUSTOM_TASKS);
-  let cursor = start;
-  const segHtml = [];
-  const labelHtml = [];
 
-  MILESTONES.forEach(ms=>{
-    const segStart = cursor;
-    const segEnd = phaseEnds[ms.n];
-    cursor = segEnd;
-    const leftPct = (segStart - start) / totalMs * 100;
-    const widthPct = (segEnd - segStart) / totalMs * 100;
+  let currentIdx = MILESTONES.findIndex(ms=>{
     const tasks = allTasks.filter(t=>t.m===ms.n);
-    const pct = computeAgg(tasks).pct;
-    const color = pct===100 ? 'var(--done)' : (tasks.some(t=>getTaskStatus(t)==='In Progress') || pct>0 ? 'var(--progress)' : 'var(--notstarted)');
-    segHtml.push('<div class="timeline-seg" style="left:' + leftPct + '%;width:' + widthPct + '%;background:' + color + '" title="' + ms.name + '"></div>');
-    const centerPct = leftPct + widthPct/2;
-    labelHtml.push(
-      '<div class="timeline-label" style="left:' + centerPct + '%">' +
-        '<div class="tl-name">0' + ms.n + ' ' + ms.name + '</div>' +
-        '<div class="tl-date">' + (ms.due ? 'By ' + ms.due : 'Completed') + '</div>' +
-      '</div>'
-    );
+    return computeAgg(tasks).pct < 100 && phaseEnds[ms.n] >= today;
+  });
+  if (currentIdx === -1) currentIdx = MILESTONES.findIndex(ms=>{
+    const tasks = allTasks.filter(t=>t.m===ms.n);
+    return computeAgg(tasks).pct < 100;
+  });
+  if (currentIdx === -1) currentIdx = MILESTONES.length;
+
+  const nodes = MILESTONES.map((ms, i)=>{
+    const tasks = allTasks.filter(t=>t.m===ms.n);
+    const p = computeAgg(tasks).pct;
+    let cls = 'upcoming';
+    if (p >= 100 || i < currentIdx) cls = 'crossed';
+    else if (i === currentIdx) cls = 'current';
+    return '<div class="stepper-node">' +
+      '<div class="stepper-dot ' + cls + '">' + (cls==='crossed' ? '&#10003;' : (i+1)) + '</div>' +
+      '<div class="stepper-name">' + ms.name + '</div>' +
+      '<div class="stepper-date">' + (ms.due ? 'By ' + ms.due : 'Completed') + ' · ' + p + '%</div>' +
+    '</div>';
   });
 
-  const todayPct = Math.min(100, Math.max(0, (today - start) / totalMs * 100));
-  const todayStr = today.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+  const crossedCount = MILESTONES.filter((ms,i)=>{
+    const tasks = allTasks.filter(t=>t.m===ms.n);
+    return computeAgg(tasks).pct >= 100 || i < currentIdx;
+  }).length;
+  const fillPct = MILESTONES.length > 1 ? (Math.max(0, crossedCount - 1) / (MILESTONES.length - 1)) * 100 : 0;
 
   el.innerHTML =
-    '<div class="timeline-wrap">' +
-      '<div class="timeline-track">' + segHtml.join('') +
-        '<div class="timeline-today" style="left:' + todayPct + '%">' +
-          '<div class="timeline-today-label" style="left:0">Today · ' + todayStr + '</div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="timeline-labels">' + labelHtml.join('') + '</div>' +
-    '</div>';
+    '<div class="stepper-wrap"><div class="stepper-track">' +
+      '<div class="stepper-line"></div>' +
+      '<div class="stepper-line-fill" style="width:calc(' + fillPct + '% - 40px)"></div>' +
+      nodes.join('') +
+    '</div></div>';
 }
 
 // ---------------------------------------------------------------------
